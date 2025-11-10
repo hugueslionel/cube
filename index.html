@@ -147,9 +147,8 @@
             const exportAsImage = () => {
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
-                
+
                 if (mode === '2d') {
-                    // Export 2D classique
                     const cellSize = 50;
                     canvas.width = 7 * cellSize + 120;
                     canvas.height = 5 * cellSize + 200;
@@ -175,34 +174,17 @@
                             ctx.strokeRect(offsetX + j * cellSize, offsetY + i * cellSize, cellSize - 2, cellSize - 2);
                         });
                     });
-                    
-                    const counts = countCubes();
-                    let y = offsetY + 5 * cellSize + 40;
-                    ctx.fillStyle = 'black';
-                    ctx.font = 'bold 16px Arial';
-                    ctx.fillText('Cubes nécessaires:', 20, y);
-                    y += 10;
-                    Object.entries(counts).forEach(([color, count]) => {
-                        if (count > 0) {
-                            ctx.fillStyle = COLORS[color];
-                            ctx.fillRect(20, y + 5, 25, 25);
-                            ctx.strokeStyle = '#666';
-                            ctx.lineWidth = 1;
-                            ctx.strokeRect(20, y + 5, 25, 25);
-                            ctx.fillStyle = 'black';
-                            ctx.font = '16px Arial';
-                            ctx.fillText(`${color.charAt(0).toUpperCase() + color.slice(1)}: ${count}`, 55, y + 22);
-                            y += 35;
-                        }
-                    });
                 } else {
                     // Export 3D isométrique
-                    const cubeW = 30;
-                    const cubeH = 30;
-                    const cubeD = 15;
+                    const cubeW = 60; // Taille augmentée
+                    const cubeH = 60;
+                    const cubeD = 30;
                     
-                    canvas.width = 800;
-                    canvas.height = 700;
+                    // Calculer les dimensions nécessaires pour le canevas
+                    const maxX = 7 * cubeW / 2 + 7 * cubeW / 2;
+                    const maxY = (5 + 7) * cubeH / 4 + layers.length * cubeD;
+                    canvas.width = maxX + 100;
+                    canvas.height = maxY + 100;
                     
                     ctx.fillStyle = 'white';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -210,27 +192,34 @@
                     ctx.fillStyle = 'black';
                     ctx.font = 'bold 24px Arial';
                     ctx.fillText('Modèle Organicube 3D', 20, 35);
-                    ctx.font = '16px Arial';
-                    ctx.fillText(`${layers.length} couche(s)`, 20, 60);
                     
-                    const startX = 200;
-                    const startY = 150;
+                    const startX = canvas.width / 2;
+                    const startY = 100;
+                    
+                    // Fonction pour ajuster la luminosité
+                    const adjustBrightness = (hex, percent) => {
+                        const num = parseInt(hex.replace('#', ''), 16);
+                        const amt = Math.round(2.55 * percent);
+                        const R = Math.min(255, Math.max(0, (num >> 16) + amt));
+                        const G = Math.min(255, Math.max(0, (num >> 8 & 0x00FF) + amt));
+                        const B = Math.min(255, Math.max(0, (num & 0x0000FF) + amt));
+                        const hexCode = (R << 16 | G << 8 | B).toString(16).padStart(6, '0');
+                        return `#${hexCode}`;
+                    };
                     
                     // Fonction pour dessiner un cube isométrique
                     const drawIsoCube = (x, y, z, color) => {
                         const isoX = startX + (x - y) * cubeW / 2;
                         const isoY = startY + (x + y) * cubeH / 4 - z * cubeD;
                         
-                        // Face du dessus
+                        // Face gauche (plus sombre)
                         ctx.beginPath();
-                        ctx.moveTo(isoX, isoY);
-                        ctx.lineTo(isoX + cubeW / 2, isoY + cubeH / 4);
+                        ctx.moveTo(isoX - cubeW / 2, isoY + cubeH / 4);
+                        ctx.lineTo(isoX - cubeW / 2, isoY + cubeH / 4 + cubeD);
+                        ctx.lineTo(isoX, isoY + cubeH / 2 + cubeD);
                         ctx.lineTo(isoX, isoY + cubeH / 2);
-                        ctx.lineTo(isoX - cubeW / 2, isoY + cubeH / 4);
                         ctx.closePath();
-                        
-                        const topColor = adjustBrightness(COLORS[color], 20);
-                        ctx.fillStyle = topColor;
+                        ctx.fillStyle = adjustBrightness(COLORS[color], -20);
                         ctx.fill();
                         ctx.strokeStyle = '#333';
                         ctx.lineWidth = 1;
@@ -243,96 +232,39 @@
                         ctx.lineTo(isoX, isoY + cubeH / 2 + cubeD);
                         ctx.lineTo(isoX, isoY + cubeH / 2);
                         ctx.closePath();
-                        
-                        const rightColor = adjustBrightness(COLORS[color], -10);
-                        ctx.fillStyle = rightColor;
+                        ctx.fillStyle = adjustBrightness(COLORS[color], -10);
                         ctx.fill();
                         ctx.strokeStyle = '#333';
                         ctx.stroke();
                         
-                        // Face gauche
+                        // Face du dessus (plus claire)
                         ctx.beginPath();
-                        ctx.moveTo(isoX - cubeW / 2, isoY + cubeH / 4);
-                        ctx.lineTo(isoX - cubeW / 2, isoY + cubeH / 4 + cubeD);
-                        ctx.lineTo(isoX, isoY + cubeH / 2 + cubeD);
+                        ctx.moveTo(isoX, isoY);
+                        ctx.lineTo(isoX + cubeW / 2, isoY + cubeH / 4);
                         ctx.lineTo(isoX, isoY + cubeH / 2);
+                        ctx.lineTo(isoX - cubeW / 2, isoY + cubeH / 4);
                         ctx.closePath();
-                        
-                        const leftColor = adjustBrightness(COLORS[color], -20);
-                        ctx.fillStyle = leftColor;
+                        ctx.fillStyle = adjustBrightness(COLORS[color], 20);
                         ctx.fill();
                         ctx.strokeStyle = '#333';
                         ctx.stroke();
                     };
                     
-                    // Fonction pour ajuster la luminosité
-                    const adjustBrightness = (hex, percent) => {
-                        const num = parseInt(hex.replace('#', ''), 16);
-                        const amt = Math.round(2.55 * percent);
-                        const R = Math.min(255, Math.max(0, (num >> 16) + amt));
-                        const G = Math.min(255, Math.max(0, (num >> 8 & 0x00FF) + amt));
-                        const B = Math.min(255, Math.max(0, (num & 0x0000FF) + amt));
-                        const hexCode = (1 << 24 | R << 16 | G << 8 | B).toString(16).slice(1);
-                        return `#${hexCode.padStart(6, '0')}`;
-                    };
-                    
-                    // Dessiner tous les cubes de l'arrière vers l'avant
-                    for (let z = 0; z < layers.length; z++) {
+                    // Dessiner les cubes de l'arrière vers l'avant
+                    const renderOrder = [];
+                    for (let z = layers.length - 1; z >= 0; z--) {
                         for (let row = 4; row >= 0; row--) {
                             for (let col = 6; col >= 0; col--) {
-                                const cell = layers[z][row][col];
-                                if (cell !== 'empty') {
-                                    drawIsoCube(col, row, z, cell);
+                                if (layers[z][row][col] !== 'empty') {
+                                    renderOrder.push({ x: col, y: row, z, color: layers[z][row][col] });
                                 }
                             }
                         }
                     }
-                    
-                    // Afficher les couches individuelles en miniature
-                    ctx.fillStyle = 'black';
-                    ctx.font = 'bold 14px Arial';
-                    ctx.fillText('Couches individuelles:', 20, 400);
-                    
-                    const miniCellSize = 15;
-                    layers.forEach((layer, layerIdx) => {
-                        const miniX = 20 + (layerIdx % 3) * 180;
-                        const miniY = 420 + Math.floor(layerIdx / 3) * 120;
-                        
-                        ctx.fillStyle = 'black';
-                        ctx.font = '12px Arial';
-                        ctx.fillText(`Couche ${layerIdx + 1}`, miniX, miniY);
-                        
-                        layer.forEach((row, i) => {
-                            row.forEach((cell, j) => {
-                                ctx.fillStyle = COLORS[cell];
-                                ctx.fillRect(miniX + j * miniCellSize, miniY + 10 + i * miniCellSize, miniCellSize - 1, miniCellSize - 1);
-                                ctx.strokeStyle = '#ccc';
-                                ctx.lineWidth = 0.5;
-                                ctx.strokeRect(miniX + j * miniCellSize, miniY + 10 + i * miniCellSize, miniCellSize - 1, miniCellSize - 1);
-                            });
-                        });
-                    });
-                    
-                    // Statistiques
-                    const counts = countCubes();
-                    let statsY = 400;
-                    const statsX = 580;
-                    ctx.fillStyle = 'black';
-                    ctx.font = 'bold 16px Arial';
-                    ctx.fillText('Cubes nécessaires:', statsX, statsY);
-                    statsY += 25;
-                    Object.entries(counts).forEach(([color, count]) => {
-                        if (count > 0) {
-                            ctx.fillStyle = COLORS[color];
-                            ctx.fillRect(statsX, statsY, 20, 20);
-                            ctx.strokeStyle = '#666';
-                            ctx.lineWidth = 1;
-                            ctx.strokeRect(statsX, statsY, 20, 20);
-                            ctx.fillStyle = 'black';
-                            ctx.font = '14px Arial';
-                            ctx.fillText(`${color.charAt(0).toUpperCase() + color.slice(1)}: ${count}`, statsX + 30, statsY + 15);
-                            statsY += 30;
-                        }
+                    // Trier pour rendre de l'arrière vers l'avant
+                    renderOrder.sort((a, b) => (b.x + b.y + b.z) - (a.x + a.y + a.z));
+                    renderOrder.forEach(({ x, y, z, color }) => {
+                        drawIsoCube(x, y, z, color);
                     });
                 }
                 
