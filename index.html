@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Éditeur Organicube - Nathan</title>
+    <meta name="description" content="Créez vos propres modèles d'assemblage pour le jeu Organicube de Nathan">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef } = React;
+
+        const COLORS = {
+            yellow: '#FFD700',
+            red: '#DC143C',
+            blue: '#1E90FF',
+            green: '#32CD32',
+            empty: '#f0f0f0'
+        };
+
+        // Icônes SVG simples
+        const DownloadIcon = () => (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+        );
+
+        const TrashIcon = () => (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+        );
+
+        const GridIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="7" height="7"/>
+                <rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/>
+                <rect x="3" y="14" width="7" height="7"/>
+            </svg>
+        );
+
+        const BoxIcon = () => (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+            </svg>
+        );
+
+        const OrganicubeEditor = () => {
+            const [mode, setMode] = useState('2d');
+            const [selectedColor, setSelectedColor] = useState('yellow');
+            const [grid, setGrid] = useState(Array(5).fill().map(() => Array(7).fill('empty')));
+            const [layers, setLayers] = useState([Array(5).fill().map(() => Array(7).fill('empty'))]);
+            const [currentLayer, setCurrentLayer] = useState(0);
+            const canvasRef = useRef(null);
+
+            const handleCellClick = (row, col) => {
+                if (mode === '2d') {
+                    const newGrid = grid.map((r, i) => 
+                        i === row ? r.map((c, j) => j === col ? selectedColor : c) : r
+                    );
+                    setGrid(newGrid);
+                } else {
+                    const newLayers = [...layers];
+                    if (!newLayers[currentLayer]) {
+                        newLayers[currentLayer] = Array(5).fill().map(() => Array(7).fill('empty'));
+                    }
+                    newLayers[currentLayer] = newLayers[currentLayer].map((r, i) => 
+                        i === row ? r.map((c, j) => j === col ? selectedColor : c) : r
+                    );
+                    setLayers(newLayers);
+                }
+            };
+
+            const clearGrid = () => {
+                if (mode === '2d') {
+                    setGrid(Array(5).fill().map(() => Array(7).fill('empty')));
+                } else {
+                    const newLayers = [...layers];
+                    newLayers[currentLayer] = Array(5).fill().map(() => Array(7).fill('empty'));
+                    setLayers(newLayers);
+                }
+            };
+
+            const addLayer = () => {
+                if (layers.length < 5) {
+                    setLayers([...layers, Array(5).fill().map(() => Array(7).fill('empty'))]);
+                    setCurrentLayer(layers.length);
+                }
+            };
+
+            const removeLayer = () => {
+                if (layers.length > 1) {
+                    const newLayers = layers.filter((_, i) => i !== currentLayer);
+                    setLayers(newLayers);
+                    setCurrentLayer(Math.max(0, currentLayer - 1));
+                }
+            };
+
+            const countCubes = () => {
+                const counts = { yellow: 0, red: 0, blue: 0, green: 0 };
+                if (mode === '2d') {
+                    grid.forEach(row => row.forEach(cell => {
+                        if (cell !== 'empty') counts[cell]++;
+                    }));
+                } else {
+                    layers.forEach(layer => {
+                        layer.forEach(row => row.forEach(cell => {
+                            if (cell !== 'empty') counts[cell]++;
+                        }));
+                    });
+                }
+                return counts;
+            };
+
+            const exportAsJSON = () => {
+                const data = {
+                    mode,
+                    grid: mode === '2d' ? grid : layers,
+                    cubes: countCubes(),
+                    created: new Date().toISOString()
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `organicube-model-${Date.now()}.json`;
+                a.click();
+            };
+
+            const exportAsImage = () => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                const cellSize = 50;
+                
+                canvas.width = 7 * cellSize + 120;
+                canvas.height = 5 * cellSize + 200;
+                
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = 'black';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText('Modèle Organicube', 20, 35);
+                ctx.font = '16px Arial';
+                ctx.fillText(`Mode: ${mode.toUpperCase()}`, 20, 60);
+                if (mode === '3d') {
+                    ctx.fillText(`Couche ${currentLayer + 1}/${layers.length}`, 20, 85);
+                }
+                
+                const currentGrid = mode === '2d' ? grid : layers[currentLayer];
+                const offsetX = 60;
+                const offsetY = mode === '3d' ? 110 : 90;
+                
+                currentGrid.forEach((row, i) => {
+                    row.forEach((cell, j) => {
+                        ctx.fillStyle = COLORS[cell];
+                        ctx.fillRect(offsetX + j * cellSize, offsetY + i * cellSize, cellSize - 2, cellSize - 2);
+                        ctx.strokeStyle = '#999';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(offsetX + j * cellSize, offsetY + i * cellSize, cellSize - 2, cellSize - 2);
+                    });
+                });
+                
+                const counts = countCubes();
+                let y = offsetY + 5 * cellSize + 40;
+                ctx.fillStyle = 'black';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText('Cubes nécessaires:', 20, y);
+                y += 10;
+                Object.entries(counts).forEach(([color, count]) => {
+                    if (count > 0) {
+                        ctx.fillStyle = COLORS[color];
+                        ctx.fillRect(20, y + 5, 25, 25);
+                        ctx.strokeStyle = '#666';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(20, y + 5, 25, 25);
+                        ctx.fillStyle = 'black';
+                        ctx.font = '16px Arial';
+                        ctx.fillText(`${color.charAt(0).toUpperCase() + color.slice(1)}: ${count}`, 55, y + 22);
+                        y += 35;
+                    }
+                });
+                
+                const url = canvas.toDataURL('image/png');
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `organicube-model-${Date.now()}.png`;
+                a.click();
+            };
+
+            const currentGrid = mode === '2d' ? grid : layers[currentLayer] || grid;
+            const counts = countCubes();
+
+            return (
+                <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #e0f2fe 0%, #fae8ff 100%)', padding: '2rem' }}>
+                    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+                        <div style={{ background: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', padding: '1.5rem', marginBottom: '1.5rem' }}>
+                            <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '0.5rem' }}>Éditeur de Modèles Organicube</h1>
+                            <p style={{ color: '#6b7280' }}>Créez vos propres modèles d'assemblage pour le jeu Nathan</p>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                                {/* Mode */}
+                                <div style={{ background: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', padding: '1rem' }}>
+                                    <h2 style={{ fontWeight: 'bold', fontSize: '1.125rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <GridIcon />
+                                        Mode
+                                    </h2>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        <button
+                                            onClick={() => setMode('2d')}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.75rem',
+                                                borderRadius: '0.5rem',
+                                                fontWeight: '500',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                background: mode === '2d' ? '#3b82f6' : '#f3f4f6',
+                                                color: mode === '2d' ? 'white' : 'black',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            2D (Plat)
+                                        </button>
+                                        <button
+                                            onClick={() => setMode('3d')}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.75rem',
+                                                borderRadius: '0.5rem',
+                                                fontWeight: '500',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                background: mode === '3d' ? '#a855f7' : '#f3f4f6',
+                                                color: mode === '3d' ? 'white' : 'black',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            3D (Couches)
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Couleurs */}
+                                <div style={{ background: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', padding: '1rem' }}>
+                                    <h2 style={{ fontWeight: 'bold', fontSize: '1.125rem', marginBottom: '0.75rem' }}>Couleurs</h2>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                                        {Object.entries(COLORS).filter(([k]) => k !== 'empty').map(([name, color]) => (
+                                            <button
+                                                key={name}
+                                                onClick={() => setSelectedColor(name)}
+                                                style={{
+                                                    padding: '1rem',
+                                                    borderRadius: '0.5rem',
+                                                    border: selectedColor === name ? '4px solid #1f2937' : '4px solid transparent',
+                                                    cursor: 'pointer',
+                                                    background: color,
+                                                    transform: selectedColor === name ? 'scale(1.05)' : 'scale(1)',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                                title={name}
+                                            />
+                                        ))}
+                                        <button
+                                            onClick={() => setSelectedColor('empty')}
+                                            style={{
+                                                padding: '1rem',
+                                                borderRadius: '0.5rem',
+                                                border: selectedColor === 'empty' ? '4px solid #1f2937' : '4px solid transparent',
+                                                cursor: 'pointer',
+                                                background: '#e5e7eb',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transform: selectedColor === 'empty' ? 'scale(1.05)' : 'scale(1)',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            title="Gomme"
+                                        >
+                                            <TrashIcon />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Statistiques */}
+                                <div style={{ background: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', padding: '1rem' }}>
+                                    <h2 style={{ fontWeight: 'bold', fontSize: '1.125rem', marginBottom: '0.75rem' }}>Statistiques</h2>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        {Object.entries(counts).map(([color, count]) => (
+                                            count > 0 && (
+                                                <div key={color} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <div 
+                                                        style={{
+                                                            width: '1.5rem',
+                                                            height: '1.5rem',
+                                                            borderRadius: '0.25rem',
+                                                            border: '1px solid #d1d5db',
+                                                            background: COLORS[color]
+                                                        }}
+                                                    />
+                                                    <span style={{ textTransform: 'capitalize' }}>{color}:</span>
+                                                    <span style={{ fontWeight: 'bold', marginLeft: 'auto' }}>{count}</span>
+                                                </div>
+                                            )
+                                        ))}
+                                        {Object.values(counts).every(c => c === 0) && (
+                                            <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Aucun cube placé</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div style={{ background: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', padding: '1rem' }}>
+                                    <h2 style={{ fontWeight: 'bold', fontSize: '1.125rem', marginBottom: '0.75rem' }}>Actions</h2>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        <button
+                                            onClick={clearGrid}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.5rem',
+                                                background: '#ef4444',
+                                                color: 'white',
+                                                borderRadius: '0.5rem',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '0.5rem',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseOver={(e) => e.target.style.background = '#dc2626'}
+                                            onMouseOut={(e) => e.target.style.background = '#ef4444'}
+                                        >
+                                            <TrashIcon />
+                                            Effacer
+                                        </button>
+                                        <button
+                                            onClick={exportAsJSON}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.5rem',
+                                                background: '#10b981',
+                                                color: 'white',
+                                                borderRadius: '0.5rem',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '0.5rem',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseOver={(e) => e.target.style.background = '#059669'}
+                                            onMouseOut={(e) => e.target.style.background = '#10b981'}
+                                        >
+                                            <DownloadIcon />
+                                            Exporter JSON
+                                        </button>
+                                        <button
+                                            onClick={exportAsImage}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.5rem',
+                                                background: '#3b82f6',
+                                                color: 'white',
+                                                borderRadius: '0.5rem',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '0.5rem',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseOver={(e) => e.target.style.background = '#2563eb'}
+                                            onMouseOut={(e) => e.target.style.background = '#3b82f6'}
+                                        >
+                                            <DownloadIcon />
+                                            Exporter Image
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Grille principale */}
+                            <div style={{ background: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', padding: '1.5rem' }}>
+                                {mode === '3d' && (
+                                    <div style={{ marginBottom: '1rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <BoxIcon />
+                                            <span style={{ fontWeight: '500' }}>Couche {currentLayer + 1}/{layers.length}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button
+                                                onClick={() => setCurrentLayer(Math.max(0, currentLayer - 1))}
+                                                disabled={currentLayer === 0}
+                                                style={{
+                                                    padding: '0.25rem 0.75rem',
+                                                    background: currentLayer === 0 ? '#f3f4f6' : '#e5e7eb',
+                                                    color: currentLayer === 0 ? '#9ca3af' : 'black',
+                                                    borderRadius: '0.25rem',
+                                                    border: 'none',
+                                                    cursor: currentLayer === 0 ? 'not-allowed' : 'pointer',
+                                                    transition: 'background 0.2s'
+                                                }}
+                                            >
+                                                ← Précédent
+                                            </button>
+                                            <button
+                                                onClick={() => setCurrentLayer(Math.min(layers.length - 1, currentLayer + 1))}
+                                                disabled={currentLayer === layers.length - 1}
+                                                style={{
+                                                    padding: '0.25rem 0.75rem',
+                                                    background: currentLayer === layers.length - 1 ? '#f3f4f6' : '#e5e7eb',
+                                                    color: currentLayer === layers.length - 1 ? '#9ca3af' : 'black',
+                                                    borderRadius: '0.25rem',
+                                                    border: 'none',
+                                                    cursor: currentLayer === layers.length - 1 ? 'not-allowed' : 'pointer',
+                                                    transition: 'background 0.2s'
+                                                }}
+                                            >
+                                                Suivant →
+                                            </button>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.5rem', marginLeft: 'auto' }}>
+                                            <button
+                                                onClick={addLayer}
+                                                disabled={layers.length >= 5}
+                                                style={{
+                                                    padding: '0.25rem 0.75rem',
+                                                    background: layers.length >= 5 ? '#d1d5db' : '#10b981',
+                                                    color: 'white',
+                                                    borderRadius: '0.25rem',
+                                                    border: 'none',
+                                                    cursor: layers.length >= 5 ? 'not-allowed' : 'pointer',
+                                                    transition: 'background 0.2s'
+                                                }}
+                                            >
+                                                + Couche
+                                            </button>
+                                            <button
+                                                onClick={removeLayer}
+                                                disabled={layers.length <= 1}
+                                                style={{
+                                                    padding: '0.25rem 0.75rem',
+                                                    background: layers.length <= 1 ? '#d1d5db' : '#ef4444',
+                                                    color: 'white',
+                                                    borderRadius: '0.25rem',
+                                                    border: 'none',
+                                                    cursor: layers.length <= 1 ? 'not-allowed' : 'pointer',
+                                                    transition: 'background 0.2s'
+                                                }}
+                                            >
+                                                - Couche
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                <div style={{ display: 'inline-block', border: '4px solid #d1d5db', borderRadius: '0.5rem', overflow: 'hidden' }}>
+                                    {currentGrid.map((row, i) => (
+                                        <div key={i} style={{ display: 'flex' }}>
+                                            {row.map((cell, j) => (
+                                                <button
+                                                    key={`${i}-${j}`}
+                                                    onClick={() => handleCellClick(i, j)}
+                                                    style={{
+                                                        width: '4rem',
+                                                        height: '4rem',
+                                                        border: '1px solid #e5e7eb',
+                                                        background: COLORS[cell],
+                                                        cursor: 'pointer',
+                                                        transition: 'opacity 0.2s'
+                                                    }}
+                                                    onMouseOver={(e) => e.target.style.opacity = '0.8'}
+                                                    onMouseOut={(e) => e.target.style.opacity = '1'}
+                                                />
+                                            ))}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {mode === '3d' && layers.length > 1 && (
+                                    <div style={{ marginTop: '1.5rem' }}>
+                                        <h3 style={{ fontWeight: 'bold', marginBottom: '0.75rem' }}>Vue de toutes les couches</h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
+                                            {layers.map((layer, idx) => (
+                                                <div 
+                                                    key={idx}
+                                                    onClick={() => setCurrentLayer(idx)}
+                                                    style={{
+                                                        cursor: 'pointer',
+                                                        border: currentLayer === idx ? '2px solid #3b82f6' : '2px solid #e5e7eb',
+                                                        borderRadius: '0.25rem',
+                                                        padding: '0.5rem',
+                                                        background: currentLayer === idx ? '#eff6ff' : 'white',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                >
+                                                    <p style={{ fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Couche {idx + 1}</p>
+                                                    <div style={{ border: '1px solid #d1d5db' }}>
+                                                        {layer.map((row, i) => (
+                                                            <div key={i} style={{ display: 'flex' }}>
+                                                                {row.map((cell, j) => (
+                                                                    <div
+                                                                        key={`${i}-${j}`}
+                                                                        style={{
+                                                                            width: '0.75rem',
+                                                                            height: '0.75rem',
+                                                                            border: '0.5px solid #f3f4f6',
+                                                                            background: COLORS[cell]
+                                                                        }}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <canvas ref={canvasRef} style={{ display: 'none' }} />
+                </div>
+            );
+        };
+
+        ReactDOM.render(<OrganicubeEditor />, document.getElementById('root'));
+    </script>
+</body>
+</html>
