@@ -272,7 +272,8 @@
                         const R = Math.min(255, Math.max(0, (num >> 16) + amt));
                         const G = Math.min(255, Math.max(0, (num >> 8 & 0x00FF) + amt));
                         const B = Math.min(255, Math.max(0, (num & 0x0000FF) + amt));
-                        return `#${(1 << 24 | R << 16 | G << 8 | B).toString(16).slice(1)}`;
+                        const hexCode = (1 << 24 | R << 16 | G << 8 | B).toString(16).slice(1);
+                        return `#${hexCode.padStart(6, '0')}`;
                     };
                     
                     // Dessiner tous les cubes de l'arrière vers l'avant
