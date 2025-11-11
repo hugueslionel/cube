@@ -175,16 +175,16 @@
                         });
                     });
                 } else {
-                    // Export 3D isométrique
-                    const cubeW = 60; // Taille augmentée
-                    const cubeH = 60;
-                    const cubeD = 30;
+                    // Export 3D isométrique - Version corrigée
+                    const cubeSize = 30;
+                    const cubeWidth = cubeSize * 2;
+                    const cubeHeight = cubeSize;
                     
                     // Calculer les dimensions nécessaires pour le canevas
-                    const maxX = 7 * cubeW / 2 + 7 * cubeW / 2;
-                    const maxY = (5 + 7) * cubeH / 4 + layers.length * cubeD;
-                    canvas.width = maxX + 100;
-                    canvas.height = maxY + 100;
+                    const maxWidth = 7 * cubeWidth + 5 * cubeWidth / 2;
+                    const maxHeight = (5 + 7) * cubeHeight / 2 + layers.length * cubeSize * 2;
+                    canvas.width = maxWidth + 100;
+                    canvas.height = maxHeight + 100;
                     
                     ctx.fillStyle = 'white';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -193,73 +193,74 @@
                     ctx.font = 'bold 24px Arial';
                     ctx.fillText('Modèle Organicube 3D', 20, 35);
                     
-                    const startX = canvas.width / 2;
+                    const startX = canvas.width / 2 - maxWidth / 4;
                     const startY = 100;
                     
-                    // Fonction pour dessiner un cube isométrique
+                    // Fonction pour dessiner un cube isométrique simplifié
                     const drawIsoCube = (x, y, z, color) => {
-                        const isoX = startX + (x - y) * cubeW / 2;
-                        const isoY = startY + (x + y) * cubeH / 4 - z * cubeD;
+                        const isoX = startX + (x - y) * cubeWidth / 2;
+                        const isoY = startY + (x + y) * cubeHeight / 2 - z * cubeSize;
                         
-                        // Face gauche
-                        ctx.beginPath();
-                        ctx.moveTo(isoX - cubeW / 2, isoY + cubeH / 4);
-                        ctx.lineTo(isoX - cubeW / 2, isoY + cubeH / 4 + cubeD);
-                        ctx.lineTo(isoX, isoY + cubeH / 2 + cubeD);
-                        ctx.lineTo(isoX, isoY + cubeH / 2);
-                        ctx.closePath();
-                        ctx.fillStyle = COLORS[color]; // Couleur pleine
-                        ctx.fill();
-                        ctx.strokeStyle = '#333';
-                        ctx.lineWidth = 1;
-                        ctx.stroke();
-                        
-                        // Face droite
-                        ctx.beginPath();
-                        ctx.moveTo(isoX + cubeW / 2, isoY + cubeH / 4);
-                        ctx.lineTo(isoX + cubeW / 2, isoY + cubeH / 4 + cubeD);
-                        ctx.lineTo(isoX, isoY + cubeH / 2 + cubeD);
-                        ctx.lineTo(isoX, isoY + cubeH / 2);
-                        ctx.closePath();
-                        ctx.fillStyle = COLORS[color]; // Couleur pleine
-                        ctx.fill();
-                        ctx.strokeStyle = '#333';
-                        ctx.stroke();
-                        
-                        // Face du dessus
+                        // Face du dessus (carré)
                         ctx.beginPath();
                         ctx.moveTo(isoX, isoY);
-                        ctx.lineTo(isoX + cubeW / 2, isoY + cubeH / 4);
-                        ctx.lineTo(isoX, isoY + cubeH / 2);
-                        ctx.lineTo(isoX - cubeW / 2, isoY + cubeH / 4);
+                        ctx.lineTo(isoX + cubeWidth / 2, isoY + cubeHeight / 2);
+                        ctx.lineTo(isoX, isoY + cubeHeight);
+                        ctx.lineTo(isoX - cubeWidth / 2, isoY + cubeHeight / 2);
                         ctx.closePath();
-                        ctx.fillStyle = COLORS[color]; // Couleur pleine
+                        ctx.fillStyle = COLORS[color];
+                        ctx.fill();
+                        ctx.strokeStyle = '#333';
+                        ctx.stroke();
+                        
+                        // Face de gauche (triangle)
+                        ctx.beginPath();
+                        ctx.moveTo(isoX - cubeWidth / 2, isoY + cubeHeight / 2);
+                        ctx.lineTo(isoX, isoY + cubeHeight);
+                        ctx.lineTo(isoX, isoY + cubeHeight + cubeSize);
+                        ctx.lineTo(isoX - cubeWidth / 2, isoY + cubeHeight / 2 + cubeSize);
+                        ctx.closePath();
+                        ctx.fillStyle = COLORS[color];
+                        ctx.fill();
+                        ctx.strokeStyle = '#333';
+                        ctx.stroke();
+                        
+                        // Face de droite (triangle)
+                        ctx.beginPath();
+                        ctx.moveTo(isoX + cubeWidth / 2, isoY + cubeHeight / 2);
+                        ctx.lineTo(isoX, isoY + cubeHeight);
+                        ctx.lineTo(isoX, isoY + cubeHeight + cubeSize);
+                        ctx.lineTo(isoX + cubeWidth / 2, isoY + cubeHeight / 2 + cubeSize);
+                        ctx.closePath();
+                        ctx.fillStyle = COLORS[color];
                         ctx.fill();
                         ctx.strokeStyle = '#333';
                         ctx.stroke();
                     };
                     
-                    // Dessiner les cubes avec un ordre de rendu correct
-                    const renderOrder = [];
+                    // Créer une liste de tous les cubes à dessiner
+                    const cubesToDraw = [];
                     for (let z = 0; z < layers.length; z++) {
-                        for (let row = 0; row < 5; row++) {
-                            for (let col = 0; col < 7; col++) {
-                                if (layers[z][row][col] !== 'empty') {
-                                    const isoX = (col - row) * cubeW / 2;
-                                    const isoY = (col + row) * cubeH / 4 - z * cubeD;
-                                    renderOrder.push({ x: col, y: row, z, color: layers[z][row][col], isoX, isoY });
+                        for (let y = 0; y < 5; y++) {
+                            for (let x = 0; x < 7; x++) {
+                                if (layers[z][y][x] !== 'empty') {
+                                    cubesToDraw.push({
+                                        x, y, z, 
+                                        color: layers[z][y][x],
+                                        // Calculer la position pour le tri
+                                        depth: x + y - z * 2
+                                    });
                                 }
                             }
                         }
                     }
-                    // Trier par profondeur isométrique (plus isoY est grand, plus c'est loin)
-                    renderOrder.sort((a, b) => {
-                        // Priorité : dessiner d'abord les cubes avec un isoY plus grand (plus bas)
-                        // En cas d'égalité, utiliser z pour les couches inférieures en premier
-                        return b.isoY - a.isoY || a.z - b.z;
-                    });
-                    renderOrder.forEach(({ x, y, z, color }) => {
-                        drawIsoCube(x, y, z, color);
+                    
+                    // Trier par profondeur (les plus éloignés en premier)
+                    cubesToDraw.sort((a, b) => a.depth - b.depth);
+                    
+                    // Dessiner tous les cubes dans l'ordre
+                    cubesToDraw.forEach(cube => {
+                        drawIsoCube(cube.x, cube.y, cube.z, cube.color);
                     });
                 }
                 
